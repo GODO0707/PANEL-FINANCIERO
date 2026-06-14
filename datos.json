@@ -1,0 +1,130 @@
+{
+  "categories": [],
+  "month": "2026-06",
+  "2026-06": {
+    "ing": [
+      {
+        "name": "Cliente 1",
+        "value": 1400
+      },
+      {
+        "name": "Cliente 2",
+        "value": 3990
+      },
+      {
+        "name": "Cliente 3",
+        "value": 2000
+      },
+      {
+        "name": "Pensión",
+        "value": 1350
+      }
+    ],
+    "gas": [
+      {
+        "group": "Barcelona",
+        "items": [
+          {
+            "name": "Arrendamiento",
+            "value": 1392
+          },
+          {
+            "name": "Agua",
+            "value": 50
+          },
+          {
+            "name": "Luz",
+            "value": 100
+          },
+          {
+            "name": "Gas",
+            "value": 100
+          },
+          {
+            "name": "Limpieza",
+            "value": 350
+          },
+          {
+            "name": "Parking",
+            "value": 120
+          },
+          {
+            "name": "Otros",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "group": "Cerdaña",
+        "items": [
+          {
+            "name": "Comunidad",
+            "value": 150
+          },
+          {
+            "name": "Luz",
+            "value": 100
+          },
+          {
+            "name": "Agua",
+            "value": 50
+          },
+          {
+            "name": "Gas",
+            "value": 100
+          },
+          {
+            "name": "Limpieza",
+            "value": 150
+          }
+        ]
+      },
+      {
+        "group": "Seguros y cuotas",
+        "items": [
+          {
+            "name": "Autónomos",
+            "value": 240
+          },
+          {
+            "name": "Adeslas",
+            "value": 215
+          },
+          {
+            "name": "Generali",
+            "value": 130
+          },
+          {
+            "name": "Seguros vehículos",
+            "value": 100
+          },
+          {
+            "name": "Teléfono + WiFi",
+            "value": 100
+          }
+        ]
+      },
+      {
+        "group": "Tributos",
+        "items": [
+          {
+            "name": "IVA",
+            "value": 700
+          },
+          {
+            "name": "IRPF",
+            "value": 1500
+          },
+          {
+            "name": "Tributos Cerdaña",
+            "value": 70
+          },
+          {
+            "name": "Vehículos",
+            "value": 100
+          }
+        ]
+      }
+    ]
+  }
+}
