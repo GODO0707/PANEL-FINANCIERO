@@ -1,0 +1,5 @@
+ - type: web
+    name: panel-financiero
+    env: node
+    buildCommand: ""
+    startCommand: node server.js
