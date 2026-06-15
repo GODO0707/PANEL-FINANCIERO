@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Panel Financiero">
+<title>Panel Financiero Personal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; font-size: 15px; }
+  header { background: #fff; border-bottom: 0.5px solid rgba(0,0,0,0.1); padding: 0 1.25rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 15px; font-weight: 500; }
+  .month-nav { display: flex; align-items: center; gap: 8px; }
+  .month-nav button { background: none; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; color: #444; }
+  #month-label { font-size: 13px; font-weight: 500; min-width: 100px; text-align: center; text-transform: capitalize; }
+  .save-indicator { font-size: 11px; color: #888; display: flex; align-items: center; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #1D9E75; transition: background 0.3s; }
+  .dot.saving { background: #BA7517; }
+  .dot.error { background: #D85A30; }
+  .tabs { display: flex; background: #fff; border-bottom: 0.5px solid rgba(0,0,0,0.1); padding: 0 1rem; }
+  .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 16px; font-size: 13px; color: #888; cursor: pointer; font-family: inherit; }
+  .tab-btn.active { color: #534AB7; border-bottom-color: #534AB7; font-weight: 500; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  main { max-width: 680px; margin: 0 auto; padding: 1rem 0.75rem 4rem; }
+  .result-banner { border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent; }
+  .result-banner.superavit { background: #e9f7f0; border-color: #9FE1CB; }
+  .result-banner.deficit { background: #fceaea; border-color: #F7C1C1; }
+  .result-banner.neutro { background: #f0efea; border-color: #D3D1C7; }
+  .rb-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .rb-label { font-size: 12px; color: #666; }
+  .rb-icon { font-size: 22px; }
+  .rb-value { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .result-banner.superavit .rb-value { color: #0F6E56; }
+  .result-banner.deficit .rb-value { color: #A32D2D; }
+  .result-banner.neutro .rb-value { color: #5F5E5A; }
+  .rb-msg { font-size: 12px; line-height: 1.5; color: #555; }
+  .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 1rem; }
+  .metric { background: #fff; border-radius: 10px; padding: 0.75rem 1rem; border: 0.5px solid rgba(0,0,0,0.08); }
+  .metric label { font-size: 11px; color: #888; display: block; margin-bottom: 3px; }
+  .metric .value { font-size: 17px; font-weight: 500; letter-spacing: -0.02em; }
+  .metric .value.ingreso { color: #0F6E56; }
+  .metric .value.gasto { color: #993C1D; }
+  .metric .value.positivo { color: #0F6E56; }
+  .metric .value.negativo { color: #A32D2D; }
+  .card { background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.08); padding: 1rem; margin-bottom: 1rem; }
+  .card-title { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.75rem; padding-bottom: 8px; border-bottom: 0.5px solid rgba(0,0,0,0.07); }
+  .card-title.ing { color: #1D9E75; }
+  .card-title.gas { color: #D85A30; }
+  .gas-group { margin-bottom: 12px; }
+  .gas-group-title { font-size: 10px; font-weight: 500; color: #bbb; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 5px; }
+  .input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .cat-name { flex: 1; font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  input[type="number"] { width: 100px; border: 0.5px solid rgba(0,0,0,0.18); border-radius: 6px; padding: 6px 8px; font-size: 14px; text-align: right; outline: none; background: #fafaf8; color: #1a1a18; -webkit-appearance: none; }
+  input[type="number"]:focus { border-color: #534AB7; background: #fff; }
+  .group-total { font-size: 11px; color: #bbb; text-align: right; margin-top: 2px; margin-bottom: 8px; }
+  .chart-card { background: #fff; border-radius: 12px; border: 0.5px solid rgba(0,0,0,0.08); padding: 1rem; margin-bottom: 1rem; }
+  .chart-card h2 { font-size: 11px; font-weight: 500; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.75rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #555; margin-bottom: 4px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-pct { margin-left: auto; font-weight: 500; color: #1a1a18; }
+  .empty-state { text-align: center; padding: 1.5rem; color: #ccc; font-size: 12px; }
+  .anual-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .anual-nav button { background: none; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 13px; color: #444; }
+  .anual-year { font-size: 18px; font-weight: 500; }
+  .anual-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1rem; }
+  .section-title { font-size: 11px; font-weight: 500; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; margin: 1.25rem 0 0.5rem; }
+  .resumen-table-wrap { background: #fff; border-radius: 10px; border: 0.5px solid rgba(0,0,0,0.08); overflow-x: auto; margin-bottom: 0.75rem; }
+  .resumen-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .resumen-table th { background: #f8f7f4; font-weight: 500; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.03em; padding: 8px 10px; text-align: right; border-bottom: 0.5px solid rgba(0,0,0,0.08); white-space: nowrap; }
+  .resumen-table th:first-child { text-align: left; }
+  .resumen-table td { padding: 7px 10px; text-align: right; border-bottom: 0.5px solid rgba(0,0,0,0.05); color: #333; white-space: nowrap; }
+  .resumen-table td:first-child { text-align: left; font-weight: 500; color: #1a1a18; text-transform: capitalize; }
+  .resumen-table tr:last-child td { border-bottom: none; }
+  .resumen-table tr.total-row td { background: #f8f7f4; font-weight: 500; border-top: 0.5px solid rgba(0,0,0,0.1); }
+  .resumen-table td.positivo { color: #0F6E56; font-weight: 500; }
+  .resumen-table td.negativo { color: #A32D2D; font-weight: 500; }
+  .resumen-table td.zero { color: #ddd; }
+  .loading { text-align: center; padding: 2rem; color: #aaa; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Panel Financiero</h1>
+  <div class="month-nav" id="month-nav-wrap">
+    <button onclick="changeMonth(-1)">&#8592;</button>
+    <span id="month-label">—</span>
+    <button onclick="changeMonth(1)">&#8594;</button>
+  </div>
+  <div class="save-indicator">
+    <div class="dot" id="dot"></div>
+    <span id="save-text">Cargando...</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('mensual', this)">Mes actual</button>
+  <button class="tab-btn" onclick="showTab('anual', this)">Resumen anual</button>
+</div>
+
+<div class="tab-panel active" id="tab-mensual">
+<main>
+  <div class="result-banner neutro" id="banner">
+    <div class="rb-top">
+      <div class="rb-label" id="banner-label">Resultado del mes</div>
+      <div class="rb-icon" id="banner-icon">📊</div>
+    </div>
+    <div class="rb-value" id="banner-value">0,00 €</div>
+    <div class="rb-msg" id="banner-msg">Introduce tus ingresos y gastos para ver el resultado.</div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><label>Total ingresos</label><div class="value ingreso" id="m-ingresos">0,00 €</div></div>
+    <div class="metric"><label>Total gastos</label><div class="value gasto" id="m-gastos">0,00 €</div></div>
+    <div class="metric"><label>Resultado</label><div class="value" id="m-resultado">0,00 €</div></div>
+    <div class="metric"><label>% ahorro</label><div class="value" id="m-pct">—</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title ing">Ingresos</div>
+    <div id="ing-container"></div>
+  </div>
+  <div class="card">
+    <div class="card-title gas">Gastos</div>
+    <div id="gas-container"></div>
+  </div>
+  <div class="chart-card">
+    <h2>Ingresos vs Gastos</h2>
+    <div style="position:relative;width:100%;height:90px;">
+      <div class="empty-state" id="empty-bar">Introduce datos para ver la comparativa</div>
+      <canvas id="barChart" style="display:none;"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2>Desglose de gastos</h2>
+    <div style="position:relative;height:180px;">
+      <canvas id="pieChart"></canvas>
+    </div>
+    <div id="legend" style="margin-top:8px;"></div>
+  </div>
+  <div class="chart-card">
+    <h2>Gastos por grupo</h2>
+    <div style="position:relative;width:100%;height:150px;">
+      <div class="empty-state" id="empty-groups">Introduce gastos para ver el gráfico</div>
+      <canvas id="groupsChart" style="display:none;"></canvas>
+    </div>
+  </div>
+</main>
+</div>
+
+<div class="tab-panel" id="tab-anual">
+<main>
+  <div class="anual-nav">
+    <button onclick="changeYear(-1)">&#8592;</button>
+    <span class="anual-year" id="anual-year-label">2026</span>
+    <button onclick="changeYear(1)">&#8594;</button>
+  </div>
+  <div class="anual-metrics">
+    <div class="metric"><label>Ingresos año</label><div class="value ingreso" id="a-ingresos">0,00 €</div></div>
+    <div class="metric"><label>Gastos año</label><div class="value gasto" id="a-gastos">0,00 €</div></div>
+    <div class="metric"><label>Resultado año</label><div class="value" id="a-resultado">0,00 €</div></div>
+  </div>
+  <p class="section-title">Resumen mes a mes</p>
+  <div class="resumen-table-wrap"><table class="resumen-table" id="tabla-meses"></table></div>
+  <p class="section-title">Ingresos por concepto</p>
+  <div class="resumen-table-wrap"><table class="resumen-table" id="tabla-ingresos"></table></div>
+  <p class="section-title">Gastos por grupo</p>
+  <div class="resumen-table-wrap"><table class="resumen-table" id="tabla-grupos"></table></div>
+  <p class="section-title">Gastos por partida</p>
+  <div class="resumen-table-wrap"><table class="resumen-table" id="tabla-partidas"></table></div>
+</main>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://vyxnnrbfuairbjostuqd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_xiQ-BwtNNBguFj13GJVrxg_vjakBkft';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const COLORS_GAS = ['#D85A30','#E8906E','#BA7517','#EF9F27','#185FA5','#5DCAA5','#534AB7','#1D9E75','#D4537E','#888780','#993C1D','#639922'];
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+const ING_ITEMS = [
+  { name: 'Cliente 1', value: 0 },
+  { name: 'Cliente 2', value: 0 },
+  { name: 'Cliente 3', value: 0 },
+  { name: 'Pensión', value: 0 },
+];
+
+const GAS_GROUPS = [
+  { group: 'Barcelona', items: [
+    { name: 'Arrendamiento', value: 0 }, { name: 'Agua', value: 0 }, { name: 'Luz', value: 0 },
+    { name: 'Gas', value: 0 }, { name: 'Limpieza', value: 0 }, { name: 'Parking', value: 0 }, { name: 'Otros', value: 0 },
+  ]},
+  { group: 'Cerdaña', items: [
+    { name: 'Comunidad', value: 0 }, { name: 'Luz', value: 0 }, { name: 'Agua', value: 0 },
+    { name: 'Gas', value: 0 }, { name: 'Limpieza', value: 0 },
+  ]},
+  { group: 'Seguros y cuotas', items: [
+    { name: 'Autónomos', value: 0 }, { name: 'Adeslas', value: 0 }, { name: 'Generali', value: 0 },
+    { name: 'Seguros vehículos', value: 0 }, { name: 'Teléfono + WiFi', value: 0 },
+  ]},
+  { group: 'Tributos', items: [
+    { name: 'IVA', value: 0 }, { name: 'IRPF', value: 0 }, { name: 'Tributos Cerdaña', value: 0 }, { name: 'Vehículos', value: 0 },
+  ]},
+];
+
+let currentMonth = getCurrentMonth();
+let currentAnualYear = new Date().getFullYear();
+let allData = {};
+let pieChart = null, barChart = null, groupsChart = null;
+let saveTimer = null;
+
+function getCurrentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+}
+
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function ensureMonth() {
+  if (!allData[currentMonth]) {
+    allData[currentMonth] = { ing: deepClone(ING_ITEMS), gas: deepClone(GAS_GROUPS) };
+  }
+}
+
+function fmtEur(n) {
+  const parts = parseFloat(n || 0).toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts[0] + ',' + parts[1] + ' \u20ac';
+}
+
+function fmtSigned(n) {
+  if (n === 0) return '<td class="zero">—</td>';
+  const cls = n > 0 ? 'positivo' : 'negativo';
+  const sign = n > 0 ? '+' : '−';
+  return `<td class="${cls}">${sign}${fmtEur(Math.abs(n))}</td>`;
+}
+
+function showTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('month-nav-wrap').style.visibility = tab === 'mensual' ? 'visible' : 'hidden';
+  if (tab === 'anual') renderAnual();
+}
+
+function changeMonth(dir) {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + dir, 1);
+  currentMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('month-label').textContent = monthLabel(currentMonth);
+  ensureMonth();
+  renderAll();
+  updateAll();
+}
+
+function changeYear(dir) {
+  currentAnualYear += dir;
+  document.getElementById('anual-year-label').textContent = currentAnualYear;
+  renderAnual();
+}
+
+function renderIngresos() {
+  const cont = document.getElementById('ing-container');
+  cont.innerHTML = '';
+  allData[currentMonth].ing.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'input-row';
+    row.innerHTML = `<span class="cat-name">${item.name}</span>
+      <input type="number" min="0" step="0.01" value="${item.value || ''}" placeholder="0,00"
+        inputmode="decimal" oninput="updateIng(${i}, this.value)" />`;
+    cont.appendChild(row);
+  });
+}
+
+function updateIng(i, val) {
+  allData[currentMonth].ing[i].value = parseFloat(val) || 0;
+  updateAll(); scheduleSave();
+}
+
+function renderGastos() {
+  const cont = document.getElementById('gas-container');
+  cont.innerHTML = '';
+  allData[currentMonth].gas.forEach((grp, gi) => {
+    const grpDiv = document.createElement('div');
+    grpDiv.className = 'gas-group';
+    const title = document.createElement('div');
+    title.className = 'gas-group-title';
+    title.textContent = grp.group;
+    grpDiv.appendChild(title);
+    grp.items.forEach((item, ii) => {
+      const row = document.createElement('div');
+      row.className = 'input-row';
+      row.innerHTML = `<span class="cat-name">${item.name}</span>
+        <input type="number" min="0" step="0.01" value="${item.value || ''}" placeholder="0,00"
+          inputmode="decimal" oninput="updateGas(${gi}, ${ii}, this.value)" />`;
+      grpDiv.appendChild(row);
+    });
+    const subtotal = grp.items.reduce((s, c) => s + (c.value || 0), 0);
+    const st = document.createElement('div');
+    st.className = 'group-total';
+    st.id = `grp-total-${gi}`;
+    st.textContent = subtotal > 0 ? 'Subtotal: ' + fmtEur(subtotal) : '';
+    grpDiv.appendChild(st);
+    cont.appendChild(grpDiv);
+  });
+}
+
+function updateGas(gi, ii, val) {
+  allData[currentMonth].gas[gi].items[ii].value = parseFloat(val) || 0;
+  const subtotal = allData[currentMonth].gas[gi].items.reduce((s, c) => s + (c.value || 0), 0);
+  const el = document.getElementById(`grp-total-${gi}`);
+  if (el) el.textContent = subtotal > 0 ? 'Subtotal: ' + fmtEur(subtotal) : '';
+  updateAll(); scheduleSave();
+}
+
+function renderAll() { renderIngresos(); renderGastos(); }
+
+function updateAll() {
+  const ing = allData[currentMonth].ing;
+  const gas = allData[currentMonth].gas;
+  const totalIng = ing.reduce((s, c) => s + (c.value || 0), 0);
+  const totalGas = gas.reduce((s, grp) => s + grp.items.reduce((ss, c) => ss + (c.value || 0), 0), 0);
+  const resultado = totalIng - totalGas;
+  const pctAhorro = totalIng > 0 ? (resultado / totalIng) * 100 : null;
+
+  document.getElementById('m-ingresos').textContent = fmtEur(totalIng);
+  document.getElementById('m-gastos').textContent = fmtEur(totalGas);
+  const resEl = document.getElementById('m-resultado');
+  resEl.textContent = (resultado >= 0 ? '+' : '−') + fmtEur(Math.abs(resultado));
+  resEl.className = 'value ' + (resultado > 0 ? 'positivo' : resultado < 0 ? 'negativo' : '');
+
+  const pctEl = document.getElementById('m-pct');
+  if (pctAhorro !== null && totalIng > 0) {
+    pctEl.textContent = (pctAhorro >= 0 ? '+' : '') + pctAhorro.toFixed(1) + '%';
+    pctEl.className = 'value ' + (pctAhorro >= 0 ? 'positivo' : 'negativo');
+  } else { pctEl.textContent = '—'; pctEl.className = 'value'; }
+
+  const banner = document.getElementById('banner');
+  const bVal = document.getElementById('banner-value');
+  const bMsg = document.getElementById('banner-msg');
+  const bIcon = document.getElementById('banner-icon');
+  const bLabel = document.getElementById('banner-label');
+
+  if (totalIng === 0 && totalGas === 0) {
+    banner.className = 'result-banner neutro'; bLabel.textContent = 'Resultado del mes';
+    bVal.textContent = '0,00 €'; bMsg.textContent = 'Introduce tus ingresos y gastos.'; bIcon.textContent = '📊';
+  } else if (resultado > 0) {
+    banner.className = 'result-banner superavit'; bLabel.textContent = 'Superávit';
+    bVal.textContent = '+' + fmtEur(resultado);
+    bMsg.innerHTML = `Tienes <strong>${fmtEur(resultado)}</strong> para ahorrar. Regla del 20%: reserva al menos ${fmtEur(totalIng * 0.2)}.`;
+    bIcon.textContent = '✅';
+  } else if (resultado < 0) {
+    banner.className = 'result-banner deficit'; bLabel.textContent = 'Déficit';
+    bVal.textContent = '−' + fmtEur(Math.abs(resultado));
+    bMsg.innerHTML = `Gastos superiores a ingresos en <strong>${fmtEur(Math.abs(resultado))}</strong>. Revisa dónde reducir.`;
+    bIcon.textContent = '⚠️';
+  } else {
+    banner.className = 'result-banner neutro'; bLabel.textContent = 'Equilibrio';
+    bVal.textContent = '0,00 €'; bMsg.textContent = 'Ingresos y gastos equilibrados.'; bIcon.textContent = '⚖️';
+  }
+
+  updateCharts(totalIng, totalGas, gas);
+}
+
+function updateCharts(totalIng, totalGas, gasGroups) {
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+  if (barChart) { barChart.destroy(); barChart = null; }
+  if (groupsChart) { groupsChart.destroy(); groupsChart = null; }
+
+  const hasData = totalIng > 0 || totalGas > 0;
+  document.getElementById('empty-bar').style.display = hasData ? 'none' : 'block';
+  document.getElementById('barChart').style.display = hasData ? 'block' : 'none';
+  if (hasData) {
+    barChart = new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: { labels: ['Ingresos', 'Gastos'], datasets: [{ data: [totalIng, totalGas], backgroundColor: ['#1D9E75','#D85A30'], borderRadius: 5, borderSkipped: false }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed.x) } } },
+        scales: { x: { ticks: { callback: v => fmtEur(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } }, y: { ticks: { font: { size: 12, weight: '500' } }, grid: { display: false } } }
+      }
+    });
+  }
+
+  const allItems = gasGroups.flatMap(g => g.items).filter(c => c.value > 0);
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  if (allItems.length > 0) {
+    const totalGasActive = allItems.reduce((s, c) => s + c.value, 0);
+    pieChart = new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      data: { labels: allItems.map(c => c.name), datasets: [{ data: allItems.map(c => c.value), backgroundColor: COLORS_GAS, borderWidth: 2, borderColor: '#fff' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed) } } } }
+    });
+    allItems.forEach((item, i) => {
+      const pct = ((item.value / totalGasActive) * 100).toFixed(1);
+      const el = document.createElement('div');
+      el.className = 'legend-item';
+      el.innerHTML = `<span class="legend-dot" style="background:${COLORS_GAS[i % COLORS_GAS.length]}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span><span style="color:#999;margin-right:4px;font-size:10px;">${fmtEur(item.value)}</span><span class="legend-pct">${pct}%</span>`;
+      legend.appendChild(el);
+    });
+  }
+
+  const groupTotals = gasGroups.map(g => ({ group: g.group, total: g.items.reduce((s, c) => s + (c.value || 0), 0) })).filter(g => g.total > 0);
+  document.getElementById('empty-groups').style.display = groupTotals.length > 0 ? 'none' : 'block';
+  document.getElementById('groupsChart').style.display = groupTotals.length > 0 ? 'block' : 'none';
+  if (groupTotals.length > 0) {
+    document.getElementById('groupsChart').parentElement.style.height = (groupTotals.length * 42 + 40) + 'px';
+    groupsChart = new Chart(document.getElementById('groupsChart'), {
+      type: 'bar',
+      data: { labels: groupTotals.map(g => g.group), datasets: [{ data: groupTotals.map(g => g.total), backgroundColor: ['#D85A30','#185FA5','#534AB7','#BA7517'], borderRadius: 4, borderSkipped: false }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed.x) } } },
+        scales: { x: { ticks: { callback: v => fmtEur(v), font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } }, y: { ticks: { font: { size: 11 } }, grid: { display: false } } }
+      }
+    });
+  }
+}
+
+function renderAnual() {
+  const y = currentAnualYear;
+  const meses = Array.from({length: 12}, (_, i) => {
+    const key = `${y}-${String(i+1).padStart(2,'0')}`;
+    const d = allData[key] || { ing: deepClone(ING_ITEMS), gas: deepClone(GAS_GROUPS) };
+    const totalIng = d.ing.reduce((s, c) => s + (c.value || 0), 0);
+    const totalGas = d.gas.reduce((s, grp) => s + grp.items.reduce((ss, c) => ss + (c.value || 0), 0), 0);
+    return { key, ing: d.ing, gas: d.gas, totalIng, totalGas, resultado: totalIng - totalGas };
+  });
+
+  const acumIng = meses.reduce((s, m) => s + m.totalIng, 0);
+  const acumGas = meses.reduce((s, m) => s + m.totalGas, 0);
+  const acumRes = acumIng - acumGas;
+
+  document.getElementById('a-ingresos').textContent = fmtEur(acumIng);
+  document.getElementById('a-gastos').textContent = fmtEur(acumGas);
+  const aRes = document.getElementById('a-resultado');
+  aRes.textContent = (acumRes >= 0 ? '+' : '−') + fmtEur(Math.abs(acumRes));
+  aRes.className = 'value ' + (acumRes > 0 ? 'positivo' : acumRes < 0 ? 'negativo' : '');
+
+  const tm = document.getElementById('tabla-meses');
+  tm.innerHTML = `<thead><tr><th>Mes</th><th>Ingresos</th><th>Gastos</th><th>Resultado</th></tr></thead>`;
+  const tbm = document.createElement('tbody');
+  meses.forEach((m, i) => {
+    const hasData = m.totalIng > 0 || m.totalGas > 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${MESES_ES[i]}</td><td>${hasData ? fmtEur(m.totalIng) : '<span style="color:#ddd">—</span>'}</td><td>${hasData ? fmtEur(m.totalGas) : '<span style="color:#ddd">—</span>'}</td>${hasData ? fmtSigned(m.resultado) : '<td class="zero">—</td>'}`;
+    tbm.appendChild(tr);
+  });
+  const trTot = document.createElement('tr');
+  trTot.className = 'total-row';
+  trTot.innerHTML = `<td>TOTAL</td><td>${fmtEur(acumIng)}</td><td>${fmtEur(acumGas)}</td>${fmtSigned(acumRes)}`;
+  tbm.appendChild(trTot);
+  tm.appendChild(tbm);
+
+  const ti = document.getElementById('tabla-ingresos');
+  ti.innerHTML = `<thead><tr><th>Concepto</th>${MESES_ES.map(m => `<th>${m.substring(0,3)}</th>`).join('')}<th>Total</th></tr></thead>`;
+  const tbi = document.createElement('tbody');
+  ING_ITEMS.forEach(item => {
+    const vals = meses.map(m => { const f = m.ing.find(x => x.name === item.name); return f ? (f.value || 0) : 0; });
+    const total = vals.reduce((s, v) => s + v, 0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.name}</td>${vals.map(v => `<td>${v > 0 ? fmtEur(v) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td style="font-weight:500">${fmtEur(total)}</td>`;
+    tbi.appendChild(tr);
+  });
+  const trTotI = document.createElement('tr');
+  trTotI.className = 'total-row';
+  trTotI.innerHTML = `<td>TOTAL</td>${meses.map(m => `<td>${m.totalIng > 0 ? fmtEur(m.totalIng) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td>${fmtEur(acumIng)}</td>`;
+  tbi.appendChild(trTotI);
+  ti.appendChild(tbi);
+
+  const tg = document.getElementById('tabla-grupos');
+  tg.innerHTML = `<thead><tr><th>Grupo</th>${MESES_ES.map(m => `<th>${m.substring(0,3)}</th>`).join('')}<th>Total</th></tr></thead>`;
+  const tbg = document.createElement('tbody');
+  GAS_GROUPS.forEach(grp => {
+    const vals = meses.map(m => { const f = m.gas.find(g => g.group === grp.group); return f ? f.items.reduce((s, c) => s + (c.value || 0), 0) : 0; });
+    const total = vals.reduce((s, v) => s + v, 0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${grp.group}</td>${vals.map(v => `<td>${v > 0 ? fmtEur(v) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td style="font-weight:500">${fmtEur(total)}</td>`;
+    tbg.appendChild(tr);
+  });
+  const trTotG = document.createElement('tr');
+  trTotG.className = 'total-row';
+  trTotG.innerHTML = `<td>TOTAL</td>${meses.map(m => `<td>${m.totalGas > 0 ? fmtEur(m.totalGas) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td>${fmtEur(acumGas)}</td>`;
+  tbg.appendChild(trTotG);
+  tg.appendChild(tbg);
+
+  const tp = document.getElementById('tabla-partidas');
+  tp.innerHTML = `<thead><tr><th>Partida</th>${MESES_ES.map(m => `<th>${m.substring(0,3)}</th>`).join('')}<th>Total</th></tr></thead>`;
+  const tbp = document.createElement('tbody');
+  GAS_GROUPS.forEach(grp => {
+    const trGrp = document.createElement('tr');
+    trGrp.style.cssText = 'background:#f8f7f4;';
+    trGrp.innerHTML = `<td colspan="14" style="font-size:10px;font-weight:500;color:#aaa;text-transform:uppercase;letter-spacing:0.04em;padding:6px 10px;">${grp.group}</td>`;
+    tbp.appendChild(trGrp);
+    grp.items.forEach(item => {
+      const vals = meses.map(m => { const fg = m.gas.find(g => g.group === grp.group); if (!fg) return 0; const fi = fg.items.find(x => x.name === item.name); return fi ? (fi.value || 0) : 0; });
+      const total = vals.reduce((s, v) => s + v, 0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="padding-left:16px;">${item.name}</td>${vals.map(v => `<td>${v > 0 ? fmtEur(v) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td style="font-weight:500">${total > 0 ? fmtEur(total) : '<span style="color:#ddd">—</span>'}</td>`;
+      tbp.appendChild(tr);
+    });
+  });
+  const trTotP = document.createElement('tr');
+  trTotP.className = 'total-row';
+  trTotP.innerHTML = `<td>TOTAL GASTOS</td>${meses.map(m => `<td>${m.totalGas > 0 ? fmtEur(m.totalGas) : '<span style="color:#ddd">—</span>'}</td>`).join('')}<td>${fmtEur(acumGas)}</td>`;
+  tbp.appendChild(trTotP);
+  const trRes = document.createElement('tr');
+  trRes.className = 'total-row';
+  trRes.innerHTML = `<td>${acumRes >= 0 ? 'AHORRO' : 'DÉFICIT'}</td>${meses.map(m => fmtSigned(m.resultado)).join('')}${fmtSigned(acumRes)}`;
+  tbp.appendChild(trRes);
+  tp.appendChild(tbp);
+}
+
+// --- Guardado y carga con Supabase ---
+function scheduleSave() {
+  document.getElementById('dot').className = 'dot saving';
+  document.getElementById('save-text').textContent = 'Guardando...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveData, 1000);
+}
+
+async function saveData() {
+  try {
+    const payload = JSON.parse(JSON.stringify(allData));
+    const { error } = await db.from('datos').update({ contenido: payload }).eq('id', 1);
+    if (error) throw error;
+    document.getElementById('dot').className = 'dot';
+    document.getElementById('save-text').textContent = 'Guardado ✓';
+  } catch (e) {
+    document.getElementById('dot').className = 'dot error';
+    document.getElementById('save-text').textContent = 'Error al guardar';
+    console.error(e);
+  }
+}
+
+async function loadData() {
+  try {
+    const { data, error } = await db.from('datos').select('contenido').eq('id', 1).single();
+    if (!error && data) allData = data.contenido || {};
+  } catch (e) {
+    console.log('Sin datos previos');
+  }
+  document.getElementById('month-label').textContent = monthLabel(currentMonth);
+  document.getElementById('anual-year-label').textContent = currentAnualYear;
+  ensureMonth();
+  renderAll();
+  updateAll();
+  document.getElementById('save-text').textContent = 'Listo';
+}
+
+loadData();
+</script>
+</body>
+</html>
