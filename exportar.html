@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Exportar datos</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #f5f4f0; padding: 2rem 1rem; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 1rem; }
+  p { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 1rem; }
+  .btn { display: block; width: 100%; padding: 14px; background: #534AB7; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-family: inherit; cursor: pointer; margin-bottom: 1rem; }
+  .btn.verde { background: #1D9E75; }
+  textarea { width: 100%; height: 200px; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; font-size: 11px; font-family: monospace; background: #fff; margin-bottom: 1rem; }
+  .msg { font-size: 13px; color: #0F6E56; margin-bottom: 1rem; display: none; }
+</style>
+</head>
+<body>
+
+<h1>Exportar mis datos</h1>
+<p>Pulsa el botón para ver tus datos. Luego selecciona todo el texto, cópialo y envíatelo por email.</p>
+
+<button class="btn" onclick="exportar()">Ver mis datos</button>
+
+<div class="msg" id="msg">✅ Datos cargados. Selecciona todo el texto de abajo y cópialo.</div>
+<textarea id="output" placeholder="Aquí aparecerán tus datos..." readonly></textarea>
+
+<button class="btn verde" onclick="copiar()">Copiar al portapapeles</button>
+
+<script>
+const STORAGE_KEY = 'panel_financiero_data';
+
+function exportar() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) {
+    document.getElementById('output').value = 'No se encontraron datos guardados.';
+  } else {
+    document.getElementById('output').value = data;
+    document.getElementById('msg').style.display = 'block';
+  }
+}
+
+function copiar() {
+  const ta = document.getElementById('output');
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  try {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      alert('¡Datos copiados! Ahora pégalos en un email y envíatelo al ordenador.');
+    });
+  } catch {
+    document.execCommand('copy');
+    alert('¡Datos copiados! Ahora pégalos en un email y envíatelo al ordenador.');
+  }
+}
+</script>
+</body>
+</html>
